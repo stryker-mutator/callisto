@@ -1,10 +1,15 @@
 package callisto;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.tinylog.Logger;
 import org.tinylog.TaggedLogger;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+
+import java.io.File;
+import java.io.IOException;
 
 @Command(name = "callisto", description = "Calculate the quality of mutators", subcommands = {Callisto.RunCommand.class, Callisto.TestCommand.class, Callisto.MergeCommand.class, CommandLine.HelpCommand.class})
 public class Callisto {
@@ -44,8 +49,11 @@ public class Callisto {
 //            }
             TaggedLogger logger = initLogger(isVerbose);
             logger.warn("this is a warning!");
-            logger.info("this is an info message.");
+            logger.info("this is an info message");
             logger.debug("this is for debugging");
+
+            MutationReport testReport = parseReport(inputFiles[0]);
+            logger.info("number of files in report: " + testReport.getFiles().size());
         }
     }
 
@@ -98,5 +106,18 @@ public class Callisto {
         } else {
             return Logger.tag("DEFAULT");
         }
+    }
+
+    private static MutationReport parseReport(String filePath) {
+        File inputFile = new File(filePath);
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        MutationReport mutationReport;
+        try {
+            mutationReport = objectMapper.readValue(inputFile, MutationReport.class);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return mutationReport;
     }
 }
