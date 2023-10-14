@@ -1,4 +1,4 @@
-package callisto;
+package callisto.model;
 
 import java.net.URI;
 import java.util.*;
@@ -25,6 +25,11 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
         "system"
 })
 public class MutationReport {
+    @JsonIgnore
+    private Mutant[] mutants;
+
+    @JsonIgnore
+    private Test[] tests;
 
     /**
      * Free-format object that represents the configuration used to run mutation testing.
@@ -111,6 +116,14 @@ public class MutationReport {
     @JsonProperty("system")
     @JsonPropertyDescription("Information about the system that performed mutation testing.")
     private System system;
+
+    public Mutant[] getMutants() {
+        return mutants;
+    }
+
+    public Test[] getTests() {
+        return tests;
+    }
 
     /**
      * Free-format object that represents the configuration used to run mutation testing.
@@ -304,6 +317,117 @@ public class MutationReport {
         this.system = system;
     }
 
+    public void initialize() {
+        // calculate and organize some derived information of the report
+
+        // determine number of mutants:
+        int numOfMutants = 0;
+        for (FileResult file : files.values()) {
+            numOfMutants += file.mutants.size();
+        }
+        // determine number of tests:
+        int numOfTests = 0;
+        for (TestFile testFile : testFiles.values()) {
+            numOfTests += testFile.tests.size();
+        }
+        this.mutants = new Mutant[numOfMutants];
+        this.tests = new Test[numOfTests];
+
+        // collect all mutants into array
+        int index = 0;
+        for (FileResult file : files.values()) {
+            for (Mutant mutant : file.mutants) {
+                this.mutants[index] = mutant;
+                index++;
+            }
+        }
+
+        //collect all tests into array
+        index = 0;
+        for (TestFile file : testFiles.values()) {
+            for (Test test : file.tests) {
+                this.tests[index] = test;
+                index++;
+            }
+        }
+    }
+
+    public void deduceMutationOperators() {
+        //TODO: implement
+    }
+
+    public Mutant[] getMutantsByMutatorName(String mutatorName, boolean killedOnly, boolean useStatic) {
+        List<Mutant> mutants = new ArrayList<>();
+        for (Mutant mutant : this.mutants) {
+            if (mutant.mutatorName.equals(mutatorName)) {
+                if ((killedOnly && mutant.status == Mutant.Status.KILLED) || !killedOnly) {
+                    if ((!useStatic && !mutant.isStatic) || useStatic) {
+                        mutants.add(mutant);
+                    }
+                }
+            }
+        }
+        return mutants.toArray(Mutant[]::new);
+    }
+
+    public MutationMatrices getMatrices() {
+        int numberOfMutants = mutants.length;
+        int numberOfTests = tests.length;
+        boolean[][] killMatrix = new boolean[numberOfTests][numberOfMutants];
+        boolean[][] coverageMatrix = new boolean[numberOfTests][numberOfMutants];
+        for (Mutant mutant : mutants) {
+            int mutantId = Integer.parseInt(mutant.id);
+            //fill in killmatrix
+            if (mutant.killedBy != null) {
+                for (String testIdString : mutant.killedBy) {
+                    int testId = Integer.parseInt(testIdString);
+                    killMatrix[testId][mutantId] = true;
+                }
+            }
+            // fill in coveragematrix
+            // static mutants have no coverage info, so use killed info instead
+            if (mutant.isStatic)  {
+                if (mutant.killedBy != null) {
+                    for (String testIdString : mutant.killedBy) {
+                        int testId = Integer.parseInt(testIdString);
+                        coverageMatrix[testId][mutantId] = true;
+                    }
+                }
+            } else {
+                if (mutant.coveredBy != null) {
+                    for (String testIdString : mutant.coveredBy) {
+                    int testId = Integer.parseInt(testIdString);
+                        coverageMatrix[testId][mutantId] = true;
+                    }
+                }
+            }
+        }
+        return new MutationMatrices(killMatrix, coverageMatrix);
+    }
+
+    public String[] getUsedMutators() {
+        List<String> mutators = new ArrayList<>();
+        for (Mutant mutant : mutants) {
+            if (!mutators.contains(mutant.mutatorName)) {
+                mutators.add(mutant.mutatorName);
+            }
+        }
+        mutators.sort(String::compareTo);
+        return mutators.toArray(String[]::new);
+    }
+
+    public int countTestExecutions(String mutator) {
+        double result = 0; //TODO: try to use int instead of double in the report class, see if jackson likes it
+        for (Mutant mutant : mutants) {
+            //static test executions included
+            if (mutant.mutatorName.equals(mutator) && mutant.testsCompleted != null) {
+                result += mutant.testsCompleted;
+            }
+        }
+        return (int) result;
+    }
+
+
     /**
      * BrandingInformation
      * <p>
@@ -316,7 +440,7 @@ public class MutationReport {
             "imageUrl"
     })
     public static class Branding {
-    
+
         /**
          * URL to the homepage of the framework.
          * (Required)
@@ -332,7 +456,7 @@ public class MutationReport {
         @JsonProperty("imageUrl")
         @JsonPropertyDescription("URL to an image for the framework, can be a data URL.")
         private String imageUrl;
-    
+
         /**
          * URL to the homepage of the framework.
          * (Required)
@@ -342,7 +466,7 @@ public class MutationReport {
         public URI getHomepageUrl() {
             return homepageUrl;
         }
-    
+
         /**
          * URL to the homepage of the framework.
          * (Required)
@@ -352,7 +476,7 @@ public class MutationReport {
         public void setHomepageUrl(URI homepageUrl) {
             this.homepageUrl = homepageUrl;
         }
-    
+
         /**
          * URL to an image for the framework, can be a data URL.
          *
@@ -361,7 +485,7 @@ public class MutationReport {
         public String getImageUrl() {
             return imageUrl;
         }
-    
+
         /**
          * URL to an image for the framework, can be a data URL.
          *
@@ -371,7 +495,7 @@ public class MutationReport {
             this.imageUrl = imageUrl;
         }
     }
-    
+
     /**
      * CpuInformation
      * <p>
@@ -385,7 +509,7 @@ public class MutationReport {
             "model"
     })
     public static class Cpu {
-    
+
         /**
          * Clock speed in MHz
          *
@@ -402,7 +526,7 @@ public class MutationReport {
         private Double logicalCores;
         @JsonProperty("model")
         private String model;
-    
+
         /**
          * Clock speed in MHz
          *
@@ -411,7 +535,7 @@ public class MutationReport {
         public Double getBaseClock() {
             return baseClock;
         }
-    
+
         /**
          * Clock speed in MHz
          *
@@ -420,7 +544,7 @@ public class MutationReport {
         public void setBaseClock(Double baseClock) {
             this.baseClock = baseClock;
         }
-    
+
         /**
          *
          * (Required)
@@ -430,7 +554,7 @@ public class MutationReport {
         public Double getLogicalCores() {
             return logicalCores;
         }
-    
+
         /**
          *
          * (Required)
@@ -440,18 +564,18 @@ public class MutationReport {
         public void setLogicalCores(Double logicalCores) {
             this.logicalCores = logicalCores;
         }
-    
+
         @JsonProperty("model")
         public String getModel() {
             return model;
         }
-    
+
         @JsonProperty("model")
         public void setModel(String model) {
             this.model = model;
         }
     }
-    
+
     /**
      * FileResult
      * <p>
@@ -465,7 +589,7 @@ public class MutationReport {
             "source"
     })
     public static class FileResult {
-    
+
         /**
          * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
          * (Required)
@@ -490,7 +614,7 @@ public class MutationReport {
         @JsonProperty("source")
         @JsonPropertyDescription("Full source code of the original file (without mutants), this is used to display exactly what was changed for each mutant.")
         private String source;
-    
+
         /**
          * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
          * (Required)
@@ -500,7 +624,7 @@ public class MutationReport {
         public String getLanguage() {
             return language;
         }
-    
+
         /**
          * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
          * (Required)
@@ -510,7 +634,7 @@ public class MutationReport {
         public void setLanguage(String language) {
             this.language = language;
         }
-    
+
         /**
          *
          * (Required)
@@ -520,7 +644,7 @@ public class MutationReport {
         public Set<Mutant> getMutants() {
             return mutants;
         }
-    
+
         /**
          *
          * (Required)
@@ -530,7 +654,7 @@ public class MutationReport {
         public void setMutants(Set<Mutant> mutants) {
             this.mutants = mutants;
         }
-    
+
         /**
          * Full source code of the original file (without mutants), this is used to display exactly what was changed for each mutant.
          * (Required)
@@ -540,7 +664,7 @@ public class MutationReport {
         public String getSource() {
             return source;
         }
-    
+
         /**
          * Full source code of the original file (without mutants), this is used to display exactly what was changed for each mutant.
          * (Required)
@@ -551,7 +675,7 @@ public class MutationReport {
             this.source = source;
         }
     }
-    
+
     /**
      * FrameworkInformation
      * <p>
@@ -566,7 +690,7 @@ public class MutationReport {
             "dependencies"
     })
     public static class Framework {
-    
+
         /**
          * Name of the framework used.
          * (Required)
@@ -600,7 +724,7 @@ public class MutationReport {
         @JsonProperty("dependencies")
         @JsonPropertyDescription("Dependencies used by the framework. Key-value pair of dependencies and their versions.")
         private Map<String, String> dependencies;
-    
+
         /**
          * Name of the framework used.
          * (Required)
@@ -610,7 +734,7 @@ public class MutationReport {
         public String getName() {
             return name;
         }
-    
+
         /**
          * Name of the framework used.
          * (Required)
@@ -620,7 +744,7 @@ public class MutationReport {
         public void setName(String name) {
             this.name = name;
         }
-    
+
         /**
          * Version of the framework.
          *
@@ -629,7 +753,7 @@ public class MutationReport {
         public String getVersion() {
             return version;
         }
-    
+
         /**
          * Version of the framework.
          *
@@ -638,7 +762,7 @@ public class MutationReport {
         public void setVersion(String version) {
             this.version = version;
         }
-    
+
         /**
          * BrandingInformation
          * <p>
@@ -649,7 +773,7 @@ public class MutationReport {
         public Branding getBranding() {
             return branding;
         }
-    
+
         /**
          * BrandingInformation
          * <p>
@@ -660,7 +784,7 @@ public class MutationReport {
         public void setBranding(Branding branding) {
             this.branding = branding;
         }
-    
+
         /**
          * Dependencies
          * <p>
@@ -671,7 +795,7 @@ public class MutationReport {
         public Map<String, String> getDependencies() {
             return dependencies;
         }
-    
+
         /**
          * Dependencies
          * <p>
@@ -683,7 +807,7 @@ public class MutationReport {
             this.dependencies = dependencies;
         }
     }
-    
+
     /**
      * Location
      * <p>
@@ -696,7 +820,7 @@ public class MutationReport {
             "end"
     })
     public static class Location {
-    
+
         /**
          * Position
          * <p>
@@ -717,7 +841,7 @@ public class MutationReport {
         @JsonProperty("end")
         @JsonPropertyDescription("Position of a mutation. Both line and column start at one.")
         private Position end;
-    
+
         /**
          * Position
          * <p>
@@ -729,7 +853,7 @@ public class MutationReport {
         public Position getStart() {
             return start;
         }
-    
+
         /**
          * Position
          * <p>
@@ -741,7 +865,7 @@ public class MutationReport {
         public void setStart(Position start) {
             this.start = start;
         }
-    
+
         /**
          * Position
          * <p>
@@ -753,7 +877,7 @@ public class MutationReport {
         public Position getEnd() {
             return end;
         }
-    
+
         /**
          * Position
          * <p>
@@ -766,7 +890,7 @@ public class MutationReport {
             this.end = end;
         }
     }
-    
+
     /**
      * MutantResult
      * <p>
@@ -789,7 +913,7 @@ public class MutationReport {
             "testsCompleted"
     })
     public static class Mutant {
-    
+
         /**
          * The test ids that covered this mutant. If a mutation testing framework doesn't measure this information, it can simply be left out.
          *
@@ -857,7 +981,7 @@ public class MutationReport {
          */
         @JsonProperty("static")
         @JsonPropertyDescription("A static mutant means that it was loaded once at during initialization, this makes it slow or even impossible to test, depending on the mutation testing framework.")
-        private Boolean _static;
+        private Boolean isStatic;
         /**
          * MutantStatus
          * <p>
@@ -882,7 +1006,7 @@ public class MutationReport {
         @JsonProperty("testsCompleted")
         @JsonPropertyDescription("The number of tests actually completed in order to test this mutant. Can differ from \"coveredBy\" because of bailing a mutant test run after first failing test.")
         private Double testsCompleted;
-    
+
         /**
          * The test ids that covered this mutant. If a mutation testing framework doesn't measure this information, it can simply be left out.
          *
@@ -891,7 +1015,7 @@ public class MutationReport {
         public List<String> getCoveredBy() {
             return coveredBy;
         }
-    
+
         /**
          * The test ids that covered this mutant. If a mutation testing framework doesn't measure this information, it can simply be left out.
          *
@@ -900,7 +1024,7 @@ public class MutationReport {
         public void setCoveredBy(List<String> coveredBy) {
             this.coveredBy = coveredBy;
         }
-    
+
         /**
          * Description of the applied mutation.
          *
@@ -909,7 +1033,7 @@ public class MutationReport {
         public String getDescription() {
             return description;
         }
-    
+
         /**
          * Description of the applied mutation.
          *
@@ -918,7 +1042,7 @@ public class MutationReport {
         public void setDescription(String description) {
             this.description = description;
         }
-    
+
         /**
          * The net time it took to test this mutant in milliseconds. This is the time measurement without overhead from the mutation testing framework.
          *
@@ -927,7 +1051,7 @@ public class MutationReport {
         public Double getDuration() {
             return duration;
         }
-    
+
         /**
          * The net time it took to test this mutant in milliseconds. This is the time measurement without overhead from the mutation testing framework.
          *
@@ -936,7 +1060,7 @@ public class MutationReport {
         public void setDuration(Double duration) {
             this.duration = duration;
         }
-    
+
         /**
          * Unique id, can be used to correlate this mutant across reports.
          * (Required)
@@ -946,7 +1070,7 @@ public class MutationReport {
         public String getId() {
             return id;
         }
-    
+
         /**
          * Unique id, can be used to correlate this mutant across reports.
          * (Required)
@@ -956,7 +1080,7 @@ public class MutationReport {
         public void setId(String id) {
             this.id = id;
         }
-    
+
         /**
          * The test ids that killed this mutant. It is a best practice to "bail" on first failing test, in which case you can fill this array with that one test.
          *
@@ -965,7 +1089,7 @@ public class MutationReport {
         public List<String> getKilledBy() {
             return killedBy;
         }
-    
+
         /**
          * The test ids that killed this mutant. It is a best practice to "bail" on first failing test, in which case you can fill this array with that one test.
          *
@@ -974,7 +1098,7 @@ public class MutationReport {
         public void setKilledBy(List<String> killedBy) {
             this.killedBy = killedBy;
         }
-    
+
         /**
          * Location
          * <p>
@@ -986,7 +1110,7 @@ public class MutationReport {
         public Location getLocation() {
             return location;
         }
-    
+
         /**
          * Location
          * <p>
@@ -998,7 +1122,7 @@ public class MutationReport {
         public void setLocation(Location location) {
             this.location = location;
         }
-    
+
         /**
          * Category of the mutation.
          * (Required)
@@ -1008,7 +1132,7 @@ public class MutationReport {
         public String getMutatorName() {
             return mutatorName;
         }
-    
+
         /**
          * Category of the mutation.
          * (Required)
@@ -1018,7 +1142,7 @@ public class MutationReport {
         public void setMutatorName(String mutatorName) {
             this.mutatorName = mutatorName;
         }
-    
+
         /**
          * Actual mutation that has been applied.
          *
@@ -1027,7 +1151,7 @@ public class MutationReport {
         public String getReplacement() {
             return replacement;
         }
-    
+
         /**
          * Actual mutation that has been applied.
          *
@@ -1036,25 +1160,25 @@ public class MutationReport {
         public void setReplacement(String replacement) {
             this.replacement = replacement;
         }
-    
+
         /**
          * A static mutant means that it was loaded once at during initialization, this makes it slow or even impossible to test, depending on the mutation testing framework.
          *
          */
         @JsonProperty("static")
         public Boolean getStatic() {
-            return _static;
+            return isStatic;
         }
-    
+
         /**
          * A static mutant means that it was loaded once at during initialization, this makes it slow or even impossible to test, depending on the mutation testing framework.
          *
          */
         @JsonProperty("static")
         public void setStatic(Boolean _static) {
-            this._static = _static;
+            this.isStatic = _static;
         }
-    
+
         /**
          * MutantStatus
          * <p>
@@ -1066,7 +1190,7 @@ public class MutationReport {
         public Mutant.Status getStatus() {
             return status;
         }
-    
+
         /**
          * MutantStatus
          * <p>
@@ -1078,7 +1202,7 @@ public class MutationReport {
         public void setStatus(Mutant.Status status) {
             this.status = status;
         }
-    
+
         /**
          * The reason that this mutant has this status. In the case of a killed mutant, this should be filled with the failure message(s) of the failing tests. In case of an error mutant, this should be filled with the error message.
          *
@@ -1087,7 +1211,7 @@ public class MutationReport {
         public String getStatusReason() {
             return statusReason;
         }
-    
+
         /**
          * The reason that this mutant has this status. In the case of a killed mutant, this should be filled with the failure message(s) of the failing tests. In case of an error mutant, this should be filled with the error message.
          *
@@ -1096,7 +1220,7 @@ public class MutationReport {
         public void setStatusReason(String statusReason) {
             this.statusReason = statusReason;
         }
-    
+
         /**
          * The number of tests actually completed in order to test this mutant. Can differ from "coveredBy" because of bailing a mutant test run after first failing test.
          *
@@ -1105,7 +1229,7 @@ public class MutationReport {
         public Double getTestsCompleted() {
             return testsCompleted;
         }
-    
+
         /**
          * The number of tests actually completed in order to test this mutant. Can differ from "coveredBy" because of bailing a mutant test run after first failing test.
          *
@@ -1114,7 +1238,7 @@ public class MutationReport {
         public void setTestsCompleted(Double testsCompleted) {
             this.testsCompleted = testsCompleted;
         }
-    
+
         /**
          * MutantStatus
          * <p>
@@ -1132,27 +1256,27 @@ public class MutationReport {
             PENDING("Pending");
             private final String value;
             private final static Map<String, Mutant.Status> CONSTANTS = new HashMap<String, Status>();
-    
+
             static {
                 for (Mutant.Status c: values()) {
                     CONSTANTS.put(c.value, c);
                 }
             }
-    
+
             Status(String value) {
                 this.value = value;
             }
-    
+
             @Override
             public String toString() {
                 return this.value;
             }
-    
+
             @JsonValue
             public String value() {
                 return this.value;
             }
-    
+
             @JsonCreator
             public static Mutant.Status fromValue(String value) {
                 Mutant.Status constant = CONSTANTS.get(value);
@@ -1162,11 +1286,11 @@ public class MutationReport {
                     return constant;
                 }
             }
-    
+
         }
-    
+
     }
-    
+
     /**
      * OpenEndLocation
      * <p>
@@ -1179,7 +1303,7 @@ public class MutationReport {
             "end"
     })
     public static class OpenEndLocation {
-    
+
         /**
          * Position
          * <p>
@@ -1199,7 +1323,7 @@ public class MutationReport {
         @JsonProperty("end")
         @JsonPropertyDescription("Position of a mutation. Both line and column start at one.")
         private Position end;
-    
+
         /**
          * Position
          * <p>
@@ -1211,7 +1335,7 @@ public class MutationReport {
         public Position getStart() {
             return start;
         }
-    
+
         /**
          * Position
          * <p>
@@ -1223,7 +1347,7 @@ public class MutationReport {
         public void setStart(Position start) {
             this.start = start;
         }
-    
+
         /**
          * Position
          * <p>
@@ -1234,7 +1358,7 @@ public class MutationReport {
         public Position getEnd() {
             return end;
         }
-    
+
         /**
          * Position
          * <p>
@@ -1246,7 +1370,7 @@ public class MutationReport {
             this.end = end;
         }
     }
-    
+
     /**
      * OSInformation
      * <p>
@@ -1260,7 +1384,7 @@ public class MutationReport {
             "version"
     })
     public static class Os {
-    
+
         /**
          * Human-readable description of the OS
          *
@@ -1283,7 +1407,7 @@ public class MutationReport {
         @JsonProperty("version")
         @JsonPropertyDescription("Version of the OS or distribution")
         private String version;
-    
+
         /**
          * Human-readable description of the OS
          *
@@ -1292,7 +1416,7 @@ public class MutationReport {
         public String getDescription() {
             return description;
         }
-    
+
         /**
          * Human-readable description of the OS
          *
@@ -1301,7 +1425,7 @@ public class MutationReport {
         public void setDescription(String description) {
             this.description = description;
         }
-    
+
         /**
          * Platform identifier
          * (Required)
@@ -1311,7 +1435,7 @@ public class MutationReport {
         public String getPlatform() {
             return platform;
         }
-    
+
         /**
          * Platform identifier
          * (Required)
@@ -1321,7 +1445,7 @@ public class MutationReport {
         public void setPlatform(String platform) {
             this.platform = platform;
         }
-    
+
         /**
          * Version of the OS or distribution
          *
@@ -1330,7 +1454,7 @@ public class MutationReport {
         public String getVersion() {
             return version;
         }
-    
+
         /**
          * Version of the OS or distribution
          *
@@ -1340,7 +1464,7 @@ public class MutationReport {
             this.version = version;
         }
     }
-    
+
     /**
      * PerformanceStatistics
      * <p>
@@ -1354,7 +1478,7 @@ public class MutationReport {
             "mutation"
     })
     public static class Performance {
-    
+
         /**
          * Time it took to run the setup phase in milliseconds.
          * (Required)
@@ -1379,7 +1503,7 @@ public class MutationReport {
         @JsonProperty("mutation")
         @JsonPropertyDescription("Time it took to run the mutation test phase in milliseconds.")
         private Double mutation;
-    
+
         /**
          * Time it took to run the setup phase in milliseconds.
          * (Required)
@@ -1389,7 +1513,7 @@ public class MutationReport {
         public Double getSetup() {
             return setup;
         }
-    
+
         /**
          * Time it took to run the setup phase in milliseconds.
          * (Required)
@@ -1399,7 +1523,7 @@ public class MutationReport {
         public void setSetup(Double setup) {
             this.setup = setup;
         }
-    
+
         /**
          * Time it took to run the initial test phase (dry-run) in milliseconds.
          * (Required)
@@ -1409,7 +1533,7 @@ public class MutationReport {
         public Double getInitialRun() {
             return initialRun;
         }
-    
+
         /**
          * Time it took to run the initial test phase (dry-run) in milliseconds.
          * (Required)
@@ -1419,7 +1543,7 @@ public class MutationReport {
         public void setInitialRun(Double initialRun) {
             this.initialRun = initialRun;
         }
-    
+
         /**
          * Time it took to run the mutation test phase in milliseconds.
          * (Required)
@@ -1429,7 +1553,7 @@ public class MutationReport {
         public Double getMutation() {
             return mutation;
         }
-    
+
         /**
          * Time it took to run the mutation test phase in milliseconds.
          * (Required)
@@ -1440,7 +1564,7 @@ public class MutationReport {
             this.mutation = mutation;
         }
     }
-    
+
     /**
      * Position
      * <p>
@@ -1453,7 +1577,7 @@ public class MutationReport {
             "column"
     })
     public static class Position {
-    
+
         /**
          *
          * (Required)
@@ -1468,7 +1592,7 @@ public class MutationReport {
          */
         @JsonProperty("column")
         private Integer column;
-    
+
         /**
          *
          * (Required)
@@ -1478,7 +1602,7 @@ public class MutationReport {
         public Integer getLine() {
             return line;
         }
-    
+
         /**
          *
          * (Required)
@@ -1488,7 +1612,7 @@ public class MutationReport {
         public void setLine(Integer line) {
             this.line = line;
         }
-    
+
         /**
          *
          * (Required)
@@ -1498,7 +1622,7 @@ public class MutationReport {
         public Integer getColumn() {
             return column;
         }
-    
+
         /**
          *
          * (Required)
@@ -1509,7 +1633,7 @@ public class MutationReport {
             this.column = column;
         }
     }
-    
+
     /**
      * RamInformation
      * <p>
@@ -1521,7 +1645,7 @@ public class MutationReport {
             "total"
     })
     public static class Ram {
-    
+
         /**
          * The total RAM of the system that performed mutation testing in MB.
          * (Required)
@@ -1530,7 +1654,7 @@ public class MutationReport {
         @JsonProperty("total")
         @JsonPropertyDescription("The total RAM of the system that performed mutation testing in MB.")
         private Double total;
-    
+
         /**
          * The total RAM of the system that performed mutation testing in MB.
          * (Required)
@@ -1540,7 +1664,7 @@ public class MutationReport {
         public Double getTotal() {
             return total;
         }
-    
+
         /**
          * The total RAM of the system that performed mutation testing in MB.
          * (Required)
@@ -1551,7 +1675,7 @@ public class MutationReport {
             this.total = total;
         }
     }
-    
+
     /**
      * SystemInformation
      * <p>
@@ -1566,7 +1690,7 @@ public class MutationReport {
             "ram"
     })
     public static class System {
-    
+
         /**
          * Did mutation testing run in a Continuous Integration environment (pipeline)? Note that there is no way of knowing this for sure. It's done on a best-effort basis.
          * (Required)
@@ -1599,7 +1723,7 @@ public class MutationReport {
          */
         @JsonProperty("ram")
         private Ram ram;
-    
+
         /**
          * Did mutation testing run in a Continuous Integration environment (pipeline)? Note that there is no way of knowing this for sure. It's done on a best-effort basis.
          * (Required)
@@ -1609,7 +1733,7 @@ public class MutationReport {
         public Boolean getCi() {
             return ci;
         }
-    
+
         /**
          * Did mutation testing run in a Continuous Integration environment (pipeline)? Note that there is no way of knowing this for sure. It's done on a best-effort basis.
          * (Required)
@@ -1619,7 +1743,7 @@ public class MutationReport {
         public void setCi(Boolean ci) {
             this.ci = ci;
         }
-    
+
         /**
          * OSInformation
          * <p>
@@ -1630,7 +1754,7 @@ public class MutationReport {
         public Os getOs() {
             return os;
         }
-    
+
         /**
          * OSInformation
          * <p>
@@ -1641,7 +1765,7 @@ public class MutationReport {
         public void setOs(Os os) {
             this.os = os;
         }
-    
+
         /**
          * CpuInformation
          * <p>
@@ -1652,7 +1776,7 @@ public class MutationReport {
         public Cpu getCpu() {
             return cpu;
         }
-    
+
         /**
          * CpuInformation
          * <p>
@@ -1663,7 +1787,7 @@ public class MutationReport {
         public void setCpu(Cpu cpu) {
             this.cpu = cpu;
         }
-    
+
         /**
          * RamInformation
          * <p>
@@ -1674,7 +1798,7 @@ public class MutationReport {
         public Ram getRam() {
             return ram;
         }
-    
+
         /**
          * RamInformation
          * <p>
@@ -1686,7 +1810,7 @@ public class MutationReport {
             this.ram = ram;
         }
     }
-    
+
     /**
      * TestDefinition
      * <p>
@@ -1700,7 +1824,7 @@ public class MutationReport {
             "location"
     })
     public static class Test {
-    
+
         /**
          * Unique id of the test, used to correlate what test killed a mutant.
          * (Required)
@@ -1726,7 +1850,7 @@ public class MutationReport {
         @JsonProperty("location")
         @JsonPropertyDescription("A location where \"end\" is not required. Start is inclusive, end is exclusive.")
         private OpenEndLocation location;
-    
+
         /**
          * Unique id of the test, used to correlate what test killed a mutant.
          * (Required)
@@ -1736,7 +1860,7 @@ public class MutationReport {
         public String getId() {
             return id;
         }
-    
+
         /**
          * Unique id of the test, used to correlate what test killed a mutant.
          * (Required)
@@ -1746,7 +1870,7 @@ public class MutationReport {
         public void setId(String id) {
             this.id = id;
         }
-    
+
         /**
          * Name of the test, used to display the test.
          * (Required)
@@ -1756,7 +1880,7 @@ public class MutationReport {
         public String getName() {
             return name;
         }
-    
+
         /**
          * Name of the test, used to display the test.
          * (Required)
@@ -1766,7 +1890,7 @@ public class MutationReport {
         public void setName(String name) {
             this.name = name;
         }
-    
+
         /**
          * OpenEndLocation
          * <p>
@@ -1777,7 +1901,7 @@ public class MutationReport {
         public OpenEndLocation getLocation() {
             return location;
         }
-    
+
         /**
          * OpenEndLocation
          * <p>
@@ -1789,7 +1913,7 @@ public class MutationReport {
             this.location = location;
         }
     }
-    
+
     /**
      * TestFile
      * <p>
@@ -1802,7 +1926,7 @@ public class MutationReport {
             "tests"
     })
     public static class TestFile {
-    
+
         /**
          * Full source code of the test file, this can be used to display in the report.
          *
@@ -1817,7 +1941,7 @@ public class MutationReport {
          */
         @JsonProperty("tests")
         private List<Test> tests;
-    
+
         /**
          * Full source code of the test file, this can be used to display in the report.
          *
@@ -1826,7 +1950,7 @@ public class MutationReport {
         public String getSource() {
             return source;
         }
-    
+
         /**
          * Full source code of the test file, this can be used to display in the report.
          *
@@ -1835,7 +1959,7 @@ public class MutationReport {
         public void setSource(String source) {
             this.source = source;
         }
-    
+
         /**
          *
          * (Required)
@@ -1845,7 +1969,7 @@ public class MutationReport {
         public List<Test> getTests() {
             return tests;
         }
-    
+
         /**
          *
          * (Required)
@@ -1856,7 +1980,7 @@ public class MutationReport {
             this.tests = tests;
         }
     }
-    
+
     /**
      * Thresholds
      * <p>
@@ -1869,7 +1993,7 @@ public class MutationReport {
             "low"
     })
     public static class Thresholds {
-    
+
         /**
          * Higher bound threshold.
          * (Required)
@@ -1886,7 +2010,7 @@ public class MutationReport {
         @JsonProperty("low")
         @JsonPropertyDescription("Lower bound threshold.")
         private Integer low;
-    
+
         /**
          * Higher bound threshold.
          * (Required)
@@ -1896,7 +2020,7 @@ public class MutationReport {
         public Integer getHigh() {
             return high;
         }
-    
+
         /**
          * Higher bound threshold.
          * (Required)
@@ -1906,7 +2030,7 @@ public class MutationReport {
         public void setHigh(Integer high) {
             this.high = high;
         }
-    
+
         /**
          * Lower bound threshold.
          * (Required)
@@ -1916,7 +2040,7 @@ public class MutationReport {
         public Integer getLow() {
             return low;
         }
-    
+
         /**
          * Lower bound threshold.
          * (Required)

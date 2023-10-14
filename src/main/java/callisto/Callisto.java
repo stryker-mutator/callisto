@@ -1,5 +1,6 @@
 package callisto;
 
+import callisto.model.MutationReport;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.tinylog.Logger;
@@ -10,6 +11,8 @@ import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @Command(name = "callisto", description = "Calculate the quality of mutators", subcommands = {Callisto.RunCommand.class, Callisto.TestCommand.class, Callisto.MergeCommand.class, CommandLine.HelpCommand.class})
 public class Callisto {
@@ -27,7 +30,7 @@ public class Callisto {
         private String outputFile;
 
         @Option(names = {"-s", "--solver"}, description = "Solver to use")
-        private String solver;
+        private String solver = "GLOP";
 
         @Option(names = {"-v", "--verbose"}, description = "Enable verbose logging")
         private boolean isVerbose = false;
@@ -47,13 +50,12 @@ public class Callisto {
 //                    throw new RuntimeException(file + ": file not found");
 //                }
 //            }
-            TaggedLogger logger = initLogger(isVerbose);
-            logger.warn("this is a warning!");
-            logger.info("this is an info message");
-            logger.debug("this is for debugging");
+//            TaggedLogger logger = initLogger(isVerbose);
+//            logger.warn("this is a warning!");
+//            logger.info("this is an info message");
+//            logger.debug("this is for debugging");
 
-            MutationReport testReport = parseReport(inputFiles[0]);
-            logger.info("number of files in report: " + testReport.getFiles().size());
+            callisto.commands.RunCommand.run(inputFiles, outputFile, solver, usekilledOnly, useStatic);
         }
     }
 
@@ -108,7 +110,7 @@ public class Callisto {
         }
     }
 
-    private static MutationReport parseReport(String filePath) {
+    public static MutationReport parseReport(String filePath) {
         File inputFile = new File(filePath);
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -118,6 +120,17 @@ public class Callisto {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        mutationReport.initialize();
         return mutationReport;
     }
+
+    public static void validateInput(String[] inputFiles) {
+        for (String file : inputFiles) {
+            if (!Files.exists(Paths.get(file))) {
+                throw new RuntimeException("File not found: " + file);
+            }
+        }
+    }
+
+
 }
