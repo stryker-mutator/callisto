@@ -591,7 +591,7 @@ public class MutationReport {
     public static class FileResult {
 
         /**
-         * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
+         * Programming language that is used. Used for code highlighting, see <a href="https://prismjs.com/#examples">...</a>.
          * (Required)
          *
          */
@@ -616,7 +616,7 @@ public class MutationReport {
         private String source;
 
         /**
-         * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
+         * Programming language that is used. Used for code highlighting, see <a href="https://prismjs.com/#examples">...</a>.
          * (Required)
          *
          */
@@ -626,7 +626,7 @@ public class MutationReport {
         }
 
         /**
-         * Programming language that is used. Used for code highlighting, see https://prismjs.com/#examples.
+         * Programming language that is used. Used for code highlighting, see <a href="https://prismjs.com/#examples">...</a>.
          * (Required)
          *
          */
@@ -1255,7 +1255,7 @@ public class MutationReport {
             IGNORED("Ignored"),
             PENDING("Pending");
             private final String value;
-            private final static Map<String, Mutant.Status> CONSTANTS = new HashMap<String, Status>();
+            private final static Map<String, Mutant.Status> CONSTANTS = new HashMap<>();
 
             static {
                 for (Mutant.Status c: values()) {

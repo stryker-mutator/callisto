@@ -50,7 +50,7 @@ public class Calculator {
                 testsToConsider = IntStream.range(0, matrices.getNumberOfTests()).toArray();
             }
             for (int test : testsToConsider) {
-                denominatorSum += Arrays.stream(matrices.getMutantsCoveredByTest(test)).filter(mutant -> Calculator.intArrayContains(equivalentMutants, mutant)).count();
+                denominatorSum += Arrays.stream(matrices.getMutantsCoveredByTest(test)).filter(mutant -> !Calculator.intArrayContains(equivalentMutants, mutant)).count();
             }
             // final calculation:
             double quality = 1.0 - (sum / denominatorSum);

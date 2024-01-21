@@ -6,7 +6,6 @@ import callisto.logic.Minimalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.IntStream;
 
 public class MutationMatrices {
     public static final int MCOV = 4;
@@ -43,7 +42,7 @@ public class MutationMatrices {
 
     public MutationMatrices minimalize(String solver) {
         MutationMatrices noDuplicates = removeDuplicateTests();
-        int[] rowsToRemove = Minimalizer.minimalize(killMatrix, solver);
+        int[] rowsToRemove = Minimalizer.minimalize(noDuplicates.getKillMatrix(), solver);
         return noDuplicates.removeRows(rowsToRemove);
     }
 
@@ -175,8 +174,21 @@ public class MutationMatrices {
         int[] coverersOfMutant = getCoverersOfMutant(mutant);
         int[] equivalentMutants = getEquivalentMutants();
         for (int test : coverersOfMutant) {
-            sum += (int) Arrays.stream(getMutantsCoveredByTest(test)).filter(m -> Calculator.intArrayContains(equivalentMutants, m)).count();
+            sum += (int) Arrays.stream(getMutantsCoveredByTest(test)).filter(m -> !Calculator.intArrayContains(equivalentMutants, m)).count();
         }
         return sum <= MCOV;
+    }
+
+    public void printKillMatrix() {
+        StringBuilder line;
+        System.out.println("Kill matrix size: " + numberOfTests + " X " + numberOfMutants);
+        for (int t = 0; t < numberOfTests; t++) {
+            line = new StringBuilder();
+            for (int m = 0; m < numberOfMutants; m++) {
+                char symbol = killMatrix[t][m] ? 'X' : ' ';
+                line.append(symbol);
+            }
+            System.out.println(line);
+        }
     }
 }
