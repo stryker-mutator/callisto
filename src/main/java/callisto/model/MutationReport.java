@@ -353,7 +353,13 @@ public class MutationReport {
     }
 
     public void deduceMutationOperators() {
-        //TODO: implement
+        for (FileResult file : files.values()) {
+            String sourceCode = file.getSource();
+            for (Mutant mutant : file.mutants) {
+                String mutationOperatorName = MutationReportHelper.deduceMutationOperatorName(mutant, sourceCode);
+                mutant.setMutatorName(mutationOperatorName);
+            }
+        }
     }
 
     public Mutant[] getMutantsByMutatorName(String mutatorName, boolean killedOnly, boolean useStatic) {
@@ -426,7 +432,6 @@ public class MutationReport {
         }
         return (int) result;
     }
-
 
     /**
      * BrandingInformation

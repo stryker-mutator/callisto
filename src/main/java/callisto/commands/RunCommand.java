@@ -5,6 +5,7 @@ import callisto.logic.Calculator;
 import callisto.model.CallistoResult;
 import callisto.model.MutationMatrices;
 import callisto.model.MutationReport;
+import callisto.model.MutationReportHelper;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -20,7 +21,8 @@ public class RunCommand {
             report.deduceMutationOperators();
             MutationMatrices matrices = report.getMatrices();
             matrices = matrices.minimalize(solver);
-            String[] mutationOperators = report.getUsedMutators(); //TODO fix: this will also include mutators which do not have killed mutants (=mistake)
+            String[] mutationOperators = report.getUsedMutators();
+            mutationOperators = MutationReportHelper.filterSurvivedMutationOperators(mutationOperators, report, matrices, useKilledOnly, useStatic);
             CallistoResult[] results = new CallistoResult[mutationOperators.length];
             for (int j = 0; j < mutationOperators.length; j++) {
                 results[j] = getResultForOperator(mutationOperators[j], report, matrices, solver, useKilledOnly, useStatic);
