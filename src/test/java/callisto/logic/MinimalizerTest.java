@@ -1,5 +1,10 @@
 package callisto.logic;
 
+import com.google.ortools.Loader;
+import com.google.ortools.linearsolver.MPConstraint;
+import com.google.ortools.linearsolver.MPObjective;
+import com.google.ortools.linearsolver.MPSolver;
+import com.google.ortools.linearsolver.MPVariable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -206,9 +211,54 @@ public class MinimalizerTest {
     @Test
     void simpleLPProblemTest() {
         //act
-        final boolean result = Minimalizer.simpleLPProblem();
+        final boolean result = simpleLPProblem();
 
         //assert
         assertTrue(result);
+    }
+
+    private static boolean simpleLPProblem() {
+        Loader.loadNativeLibraries();
+        MPSolver solver = MPSolver.createSolver("GLOP");
+
+        double infinity = java.lang.Double.POSITIVE_INFINITY;
+        // x and y are continuous non-negative variables.
+        MPVariable x = solver.makeNumVar(0.0, infinity, "x");
+        MPVariable y = solver.makeNumVar(0.0, infinity, "y");
+
+        // x + 2*y <= 14.
+        MPConstraint c0 = solver.makeConstraint(-infinity, 14.0, "c0");
+        c0.setCoefficient(x, 1);
+        c0.setCoefficient(y, 2);
+
+        // 3*x - y >= 0.
+        MPConstraint c1 = solver.makeConstraint(0.0, infinity, "c1");
+        c1.setCoefficient(x, 3);
+        c1.setCoefficient(y, -1);
+
+        // x - y <= 2.
+        MPConstraint c2 = solver.makeConstraint(-infinity, 2.0, "c2");
+        c2.setCoefficient(x, 1);
+        c2.setCoefficient(y, -1);
+
+        // Maximize 3 * x + 4 * y.
+        MPObjective objective = solver.objective();
+        objective.setCoefficient(x, 3);
+        objective.setCoefficient(y, 4);
+        objective.setMaximization();
+
+        final MPSolver.ResultStatus resultStatus = solver.solve();
+
+        if (resultStatus == MPSolver.ResultStatus.OPTIMAL) {
+            if (Math.round(x.solutionValue()) == 6 && Math.round(y.solutionValue()) == 4 && Math.round(objective.value()) == 34) {
+                return true;
+            } else {
+                System.out.println("Solution is incorrect!");
+                return false;
+            }
+        } else {
+            System.err.println("The problem does not have an optimal solution!");
+            return false;
+        }
     }
 }

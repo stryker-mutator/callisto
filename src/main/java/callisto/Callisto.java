@@ -43,18 +43,6 @@ public class Callisto {
 
         @Override
         public void run() {
-            // validate that input files exist
-//            for (String file : inputFiles) {
-//                File inputFile = new File(file);
-//                if (!inputFile.isFile()) {
-//                    throw new RuntimeException(file + ": file not found");
-//                }
-//            }
-//            TaggedLogger logger = initLogger(isVerbose);
-//            logger.warn("this is a warning!");
-//            logger.info("this is an info message");
-//            logger.debug("this is for debugging");
-
             callisto.commands.RunCommand.run(inputFiles, outputFile, solver, usekilledOnly, useStatic);
         }
     }
@@ -81,7 +69,7 @@ public class Callisto {
 
         @Override
         public void run() {
-            System.out.println("this is the test command!");
+            System.out.println("The test command has not been implemented yet...");
         }
     }
 
@@ -98,7 +86,7 @@ public class Callisto {
 
         @Override
         public void run() {
-            System.out.println("This is the merge command!");
+            System.out.println("The merge command has not been implemented yet...");
         }
     }
 

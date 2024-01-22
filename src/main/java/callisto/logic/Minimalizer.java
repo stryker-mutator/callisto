@@ -44,8 +44,6 @@ public class Minimalizer {
                 constraint.setCoefficient(x[t], matrix[t][m] ? 1 : 0);
             }
         }
-//        System.out.println("Number of variables = " + solver.numVariables());
-//        System.out.println("Number of constraints = " + solver.numConstraints());
         MPObjective objective = solver.objective();
         for (int t = 0; t < T; t++) {
             objective.setCoefficient(x[t], 1);
@@ -59,8 +57,6 @@ public class Minimalizer {
             System.out.println("The problem does not have an optimal solution!");
             return new int[] {};
         }
-
-        //Console.WriteLine($"Number of tests removed = {T - solver.objective().value()}");
         List<Integer> result = new ArrayList<>();
         boolean warning = false;
         for (int t = 0; t < T; t++) {
@@ -68,58 +64,10 @@ public class Minimalizer {
                 System.err.printf("WARNING: Indecisive minimalization occurred. Decision variable of value %.4f. Use solver 'SAT' to prevent%n", x[t].solutionValue());
                 warning = true;
             }
-            //Console.WriteLine(x[t].SolutionValue());
             if (x[t].solutionValue() == 0.0) {
                 result.add(t);
             }
         }
-        //Console.WriteLine($"Time taken: {solver.WallTime()} ms");
         return result.stream().mapToInt(i -> i).toArray();
-    }
-
-
-    public static boolean simpleLPProblem() {
-        Loader.loadNativeLibraries();
-        MPSolver solver = MPSolver.createSolver("GLOP");
-
-        double infinity = java.lang.Double.POSITIVE_INFINITY;
-        // x and y are continuous non-negative variables.
-        MPVariable x = solver.makeNumVar(0.0, infinity, "x");
-        MPVariable y = solver.makeNumVar(0.0, infinity, "y");
-
-        // x + 2*y <= 14.
-        MPConstraint c0 = solver.makeConstraint(-infinity, 14.0, "c0");
-        c0.setCoefficient(x, 1);
-        c0.setCoefficient(y, 2);
-
-        // 3*x - y >= 0.
-        MPConstraint c1 = solver.makeConstraint(0.0, infinity, "c1");
-        c1.setCoefficient(x, 3);
-        c1.setCoefficient(y, -1);
-
-        // x - y <= 2.
-        MPConstraint c2 = solver.makeConstraint(-infinity, 2.0, "c2");
-        c2.setCoefficient(x, 1);
-        c2.setCoefficient(y, -1);
-
-        // Maximize 3 * x + 4 * y.
-        MPObjective objective = solver.objective();
-        objective.setCoefficient(x, 3);
-        objective.setCoefficient(y, 4);
-        objective.setMaximization();
-
-        final MPSolver.ResultStatus resultStatus = solver.solve();
-
-        if (resultStatus == MPSolver.ResultStatus.OPTIMAL) {
-            if (Math.round(x.solutionValue()) == 6 && Math.round(y.solutionValue()) == 4 && Math.round(objective.value()) == 34) {
-                return true;
-            } else {
-                System.out.println("Solution is incorrect!");
-                return false;
-            }
-        } else {
-            System.err.println("The problem does not have an optimal solution!");
-            return false;
-        }
     }
 }
