@@ -1,0 +1,1 @@
+no ROR level consists of removing all ConditionalExpression and EqualityOperator mutation operators.

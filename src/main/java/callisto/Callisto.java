@@ -49,7 +49,10 @@ public class Callisto {
 
     @Command(name = "test", description = "Test the effectiveness of a mutation level")
     static class TestCommand implements Runnable {
-        @Option(names = {"-i", "--input"}, description = "Input file describing mutation level to test", required = true)
+        @Option(names = {"-l", "--level"}, description = "File describing the mutation level to test", required = true)
+        private String levelFile;
+
+        @Option(names = {"-i", "--input"}, description = "Input Stryker mutation report to use when testing the level", required = true)
         private String inputFile;
 
         @Option(names = {"-o", "--output"}, description = "Output file to report findings", required = true)
@@ -61,15 +64,9 @@ public class Callisto {
         @Option(names = {"-v", "--verbose"}, description = "Enable verbose logging")
         private boolean verbose = false;
 
-        @Option(names = {"-k", "--killed-only"}, description = "Only use killed mutants")
-        private boolean killed = false;
-
-        @Option(names = {"-t", "--static"}, description = "Include static mutants")
-        private boolean useStatic = false;
-
         @Override
         public void run() {
-            System.out.println("The test command has not been implemented yet...");
+            callisto.commands.TestCommand.run(levelFile, inputFile, outputFile, solver, verbose);
         }
     }
 
