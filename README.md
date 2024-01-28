@@ -4,7 +4,7 @@ Calculate quality of mutation operators from Stryker JSON reports.
 ## Running Callisto
 Currently Callisto is not yet packaged into a native executable. You can run the jar using:
 ```shell
-java -jar stryker-callisto-0.1.0.jar <program arguments>
+java -jar stryker-callisto-0.2.0.jar <program arguments>
 ```
 Java version 17 or later is required. Run `java -version` to see what you are using.
 
